@@ -66,15 +66,7 @@ Before you begin, ensure you have the following installed:
 
 ## 🛠️ Development Setup
 
-### 1. Install Dependencies
-
-```bash
-# Install all dependencies for both frontend and backend
-cd backend && npm install
-cd ../frontend && npm install
-```
-
-### 2. Configure Environment Variables
+### 1. Configure Environment Variables
 
 **Backend (.env):**
 ```bash
@@ -98,17 +90,19 @@ cp .env.example .env
 
 The default values in `frontend/.env.example` should work for local development.
 
-### 3. Start Development Servers
+### 2. Start Development Servers
 
 **Terminal 1 - Backend:**
 ```bash
 cd backend
+npm install
 npm run dev
 ```
 
 **Terminal 2 - Frontend:**
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 

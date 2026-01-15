@@ -51,42 +51,43 @@ A full-stack application for sending personalized bulk emails with automatic cer
 ### Prerequisites
 - Node.js 18+ installed
 - Gmail account with App Password
-- Google AI Studio API key
 
 ### Installation
 
-1. **Clone and install dependencies**
+1. **Clone the repository**
 ```powershell
-cd d:\github\bulk-email
-npm run install:all
+git clone <repository-url>
 ```
 
-2. **Backend setup**
+2. **Backend Setup (Terminal 1)**
+Open a terminal and run:
 ```powershell
 cd backend
+npm install
+# Create .env file
 cp .env.example .env
+# Edit .env with your credentials
+npm run dev
 ```
 
-Edit `.env` and add:
+3. **Frontend Setup (Terminal 2)**
+Open a second terminal and run:
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+4. **Configuration (.env)**
+Edit `backend/.env`:
 ```env
 PORT=5000
 JWT_SECRET=your_super_secret_jwt_key_32chars_min
 ENCRYPTION_KEY=your_32_character_key_for_aes_encryption
-GOOGLE_AI_API_KEY=your_google_ai_studio_api_key_here
 ```
 
-3. **Get Google AI API Key**
-- Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-- Create a new API key
-- Copy to `.env`
-
-4. **Start development servers**
-```powershell
-# From root directory
-npm run dev
-```
-
-This starts:
+5. **Start the Application**
+With both terminals running `npm run dev`:
 - Frontend: http://localhost:3000
 - Backend: http://localhost:5000
 
@@ -281,7 +282,26 @@ bulk-email/
 
 ## 📝 License
 
-MIT License - Feel free to use for personal or commercial projects
+This project is licensed under the [MIT License](LICENSE) - feel free to use for personal or commercial projects.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+- Code of conduct
+- Development setup
+- Pull request process
+- Coding standards
+
+---
+
+## 📚 Documentation
+
+For detailed documentation, see the [`docs/`](docs/) folder:
+- [**Setup Guide**](docs/SETUP.md) - Complete installation and configuration
+- [**API Reference**](docs/API.md) - Full API documentation
+- [**Architecture**](docs/ARCHITECTURE.md) - Technical design and structure
 
 ---
 

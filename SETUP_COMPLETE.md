@@ -66,7 +66,7 @@
 - ✅ Context-aware analysis
 - ✅ Handles unusual column names
 - ✅ Confidence: 90-99%
-- ✅ Requires GOOGLE_AI_API_KEY in .env
+- ✅ Optional (requires API key if enabled)
 
 ### Code Location
 - **File:** `backend/routes/upload.js`
@@ -79,15 +79,19 @@
 ## 🚀 How to Test
 
 ### 1. Start Backend Server
+**Terminal 1:**
 ```bash
 cd backend
+npm install
 npm run dev
 ```
 Output: `Server running on port 5000`
 
 ### 2. Start Frontend Server
+**Terminal 2:**
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 Output: `Local: http://localhost:5173`
@@ -129,11 +133,8 @@ Create `backend/.env`:
 PORT=5000
 JWT_SECRET=your_super_secret_jwt_key_here
 ENCRYPTION_KEY=your_32_character_encryption_key
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
 NODE_ENV=development
 ```
-
-Get Google AI API Key: https://ai.google.dev/
 
 ## ✨ Features Verified
 

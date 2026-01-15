@@ -68,7 +68,6 @@ MailForge AI is a full-stack application designed to simplify bulk email campaig
 | Service | Purpose | Required |
 |---------|---------|----------|
 | **Gmail Account** | Sending emails via SMTP | ✅ Yes |
-| **Google AI Studio** | AI column detection | ⚡ Optional (fallback available) |
 
 ---
 
@@ -83,42 +82,19 @@ cd bulk-email
 
 ### Step 2: Install Backend Dependencies
 
+Open first terminal:
 ```bash
 cd backend
 npm install
 ```
 
-This installs:
-- `express` - Web framework
-- `nodemailer` - Email sending
-- `pdfkit` - PDF certificate generation
-- `papaparse` - CSV parsing
-- `read-excel-file` - Excel parsing
-- `crypto-js` - AES encryption
-- `jsonwebtoken` - JWT authentication
-- `bcryptjs` - Password hashing
-- `cors` - Cross-origin requests
-- `multer` - File uploads
-- `dotenv` - Environment variables
-
 ### Step 3: Install Frontend Dependencies
 
+Open second terminal:
 ```bash
-cd ../frontend
+cd frontend
 npm install
 ```
-
-This installs:
-- `react` & `react-dom` - UI library
-- `vite` - Build tool
-- `tailwindcss` - Styling
-- `framer-motion` - Animations
-- `react-quill` - Rich text editor
-- `axios` - HTTP client
-- `react-router-dom` - Routing
-- `lucide-react` - Icons
-- `konva` & `react-konva` - Canvas editing
-- `react-hot-toast` - Notifications
 
 ---
 
@@ -143,9 +119,6 @@ NODE_ENV=development
 # Security Keys (REQUIRED - Change these!)
 JWT_SECRET=your_super_secret_jwt_key_minimum_32_characters
 ENCRYPTION_KEY=your_32_character_encryption_key_here
-
-# Optional: Google AI API (for AI-powered column detection)
-GOOGLE_AI_API_KEY=your_google_ai_studio_api_key
 ```
 
 #### Environment Variables Explained
@@ -156,7 +129,6 @@ GOOGLE_AI_API_KEY=your_google_ai_studio_api_key
 | `NODE_ENV` | Environment mode | No | `development` or `production` |
 | `JWT_SECRET` | Secret for JWT tokens | ✅ Yes | Random 32+ character string |
 | `ENCRYPTION_KEY` | Key for AES encryption | ✅ Yes | Exactly 32 characters |
-| `GOOGLE_AI_API_KEY` | Google AI Studio API key | No | `AIza...` |
 
 #### Generating Secure Keys
 
@@ -210,6 +182,7 @@ Open two terminal windows:
 **Terminal 1 - Backend:**
 ```bash
 cd backend
+npm install
 npm run dev
 ```
 Output: `🚀 MailForge AI Backend running on port 5000`
@@ -217,6 +190,7 @@ Output: `🚀 MailForge AI Backend running on port 5000`
 **Terminal 2 - Frontend:**
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 Output shows Vite dev server URL (usually http://localhost:5173 or http://localhost:3000)

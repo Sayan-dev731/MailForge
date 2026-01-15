@@ -153,18 +153,24 @@ bulk-email/
 ```
 
 ### Option 2: Manual Setup
+
+**Terminal 1 (Backend):**
 ```powershell
-npm run install:all
 cd backend
+npm install
 cp .env.example .env
-# Edit .env with your API keys
-cd ..
 npm run dev
 ```
 
-### Required API Keys
-1. **Google AI Studio**: https://makersuite.google.com/app/apikey
-2. **Gmail App Password**: Google Account → Security → App Passwords
+**Terminal 2 (Frontend):**
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+### Required Credentials
+1. **Gmail App Password**: Google Account → Security → App Passwords
 
 ## 📈 Scalability Notes
 
@@ -184,9 +190,9 @@ npm run dev
 ## 🎯 Next Steps
 
 ### Immediate
-1. Install dependencies: `npm run install:all`
-2. Configure .env files
-3. Start dev servers: `npm run dev`
+1. Install dependencies: `npm install` in both folders
+2. Configure .env files (backend)
+3. Start dev servers: `npm run dev` in both terminals
 4. Create admin account
 5. Add Gmail SMTP settings
 6. Test with sample CSV

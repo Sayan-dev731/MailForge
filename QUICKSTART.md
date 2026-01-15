@@ -8,17 +8,26 @@
 ## Setup (5 minutes)
 
 ### Step 1: Install Dependencies
-```powershell
-# Run the automated setup script
-.\setup.ps1
+Open two terminals:
 
-# OR manually:
-npm run install:all
+**Terminal 1:**
+```powershell
+cd backend
+npm install
+```
+
+**Terminal 2:**
+```powershell
+cd frontend
+npm install
 ```
 
 ### Step 2: Configure Backend
+In Terminal 1:
 ```powershell
-cd backend
+# Inside backend folder
+# Create .env file
+cp .env.example .env
 ```
 
 Edit `.env` file:
@@ -26,22 +35,24 @@ Edit `.env` file:
 PORT=5000
 JWT_SECRET=change_this_to_a_long_random_string_min_32_chars
 ENCRYPTION_KEY=exactly_32_character_string_for_aes_256_encryption_key
-GOOGLE_AI_API_KEY=your_google_ai_studio_api_key_here
 NODE_ENV=development
 ```
 
-**Get Google AI API Key:**
-1. Visit https://makersuite.google.com/app/apikey
-2. Click "Create API Key"
-3. Copy and paste into `.env`
-
 ### Step 3: Start Application
+
+**Terminal 1 (Backend):**
 ```powershell
-# From root directory
 npm run dev
 ```
 
-This starts both frontend (port 3000) and backend (port 5000).
+**Terminal 2 (Frontend):**
+```powershell
+npm run dev
+```
+
+This starts both:
+- Frontend: http://localhost:3000
+- Backend: http://localhost:5000
 
 ## First Use
 

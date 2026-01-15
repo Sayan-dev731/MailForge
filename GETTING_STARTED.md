@@ -15,23 +15,19 @@ A **fully functional**, **production-ready** bulk email system with:
 
 ---
 
-## 🚀 Installation (Choose One)
+## 🚀 Installation
+From the project root:
 
-### Option A: PowerShell (Recommended)
+**Terminal 1:**
 ```powershell
-.\setup.ps1
-```
-
-### Option B: Command Prompt
-```cmd
-setup.bat
-```
-
-### Option C: Manual
-```powershell
+cd backend
 npm install
-cd backend && npm install && cd ..
-cd frontend && npm install && cd ..
+```
+
+**Terminal 2:**
+```powershell
+cd frontend
+npm install
 ```
 
 ---
@@ -39,23 +35,19 @@ cd frontend && npm install && cd ..
 ## ⚙️ Configuration (2 minutes)
 
 ### 1. Backend Environment
+In Terminal 1:
 ```powershell
-cd backend
+# Inside backend folder
+cp .env.example .env
 ```
 
-Edit `.env` (created from `.env.example`):
+Edit `.env`:
 ```env
 PORT=5000
 JWT_SECRET=your_super_long_random_jwt_secret_min_32_characters_here
 ENCRYPTION_KEY=exactly_32_chars_for_aes_key!
-GOOGLE_AI_API_KEY=your_google_ai_studio_api_key
 NODE_ENV=development
 ```
-
-**Get Google AI API Key:**
-1. Visit: https://makersuite.google.com/app/apikey
-2. Click "Get API Key" → "Create API key"
-3. Copy and paste into `.env`
 
 ### 2. Frontend Environment (Optional)
 Frontend uses proxy, but you can create `.env` if needed:
@@ -67,7 +59,12 @@ VITE_API_URL=http://localhost:5000/api
 
 ## 🎬 Start the Application
 
-From project root:
+**Terminal 1 (Backend):**
+```powershell
+npm run dev
+```
+
+**Terminal 2 (Frontend):**
 ```powershell
 npm run dev
 ```
@@ -160,8 +157,10 @@ Alex Johnson,alex@example.com,Web Workshop
 ## 🐛 Troubleshooting
 
 ### "Cannot find module"
+Check that you ran `npm install` in **both** folders:
 ```powershell
-npm run install:all
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
 ### "Port 3000 already in use"
@@ -176,9 +175,8 @@ Change PORT in `backend/.env`
 - ✅ Try regenerating App Password
 
 ### AI detection shows "0% confidence"
-- ✅ Check `.env` has GOOGLE_AI_API_KEY
-- ✅ Verify API key is valid
-- ✅ Rule-based fallback still works!
+- ✅ Rule-based fallback is active
+- ✅ Ensure columns are named clearly (e.g., "Name", "Email")
 
 ### Emails not sending
 - ✅ Check SMTP configured in Settings
