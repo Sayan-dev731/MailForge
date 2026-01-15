@@ -1,326 +1,209 @@
-# MailForge AI 🚀
+<div align="center">
+
+# 🚀 MailForge AI
 
 **Smart Bulk Email & Certificate System with AI-Powered Column Detection**
 
-A full-stack application for sending personalized bulk emails with automatic certificate generation. Features AI-powered Excel/CSV column detection, drag-and-drop file upload, dynamic variables, and real-time campaign tracking.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18.0-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18.0-blue.svg)](https://reactjs.org/)
+[![Status](https://img.shields.io/badge/Status-Production-success.svg)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-tech-stack">Tech Stack</a> •
+  <a href="#-documentation">Documentation</a> •
+  <a href="#-contributing">Contributing</a>
+</p>
+
+</div>
+
+---
+
+<p align="center">
+  <b>MailForge AI</b> is a powerful full-stack application for sending personalized bulk emails with automatic certificate generation. <br/>
+  It leverages <b>Google AI</b> for intelligent column detection and offers a seamless, drag-and-drop experience.
+</p>
 
 ---
 
 ## ✨ Features
 
-### Core Functionality
+### 🏢 Core Functionality
 - 🔐 **Secure Authentication** - JWT-based login with AES-256 encrypted SMTP credentials
-- 📊 **Smart File Upload** - AI detects Name & Email columns from any Excel/CSV format
-- ✏️ **Dynamic Recipient Table** - Edit, add, remove recipients with email validation
-- 📧 **Rich Email Editor** - WYSIWYG + HTML mode with dynamic variables ({{name}}, {{email}}, etc.)
-- 🎓 **Certificate Generator** - Auto-generate PDF certificates with custom templates
-- 📮 **Bulk Email Sending** - Send via Gmail with rate limiting and retry logic
-- 📈 **Campaign Tracking** - Real-time status, success rates, and export results
+- 📊 **Smart File Upload** - AI detects **Name** & **Email** columns automatically from any Excel/CSV
+- ✏️ **Dynamic Recipients** - Edit, add, remove, and validate recipients in real-time
+- 📧 **Rich Email Editor** - WYSIWYG + HTML mode with dynamic variables support (e.g., `{{name}}`, `{{event}}`)
+- 🎓 **Certificate Generator** - Auto-attach personalized PDF certificates
+- 📮 **Bulk Sending Engine** - Optimized for Gmail with intelligent rate limiting (1 email/sec)
+- 📈 **Campaign Analytics** - Real-time tracking of sent, failed, and pending emails
 
-### Technical Highlights
-- **AI Column Detection** - Google AI Studio (Gemini) + rule-based fallback
-- **Rate Limiting** - Prevents Gmail blocking (1 email/second)
-- **Encryption** - AES-256 for SMTP passwords
-- **Real-time Updates** - Auto-refresh campaign status
-- **GitHub-Inspired UI** - Dark theme, Space Mono font, smooth animations
+### 🛡️ Technical Highlights
+- **AI-Powered**: Uses Google Gemini for smart column mapping (with rule-based fallback)
+- **Zero-Block Sending**: Intelligent queue management to prevent SMTP blocks
+- **Military-Grade Encryption**: AES-256 encryption for all sensitive credentials
+- **Reactive UI**: Auto-refreshing status updates and smooth Framer Motion animations
+- **Dark Mode**: Beautiful, GitHub-inspired dark theme with **Space Mono** typography
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **React 18** + **Vite** - Fast, modern build tool
-- **TailwindCSS** - Utility-first styling
-- **Framer Motion** - Smooth animations
-- **React Quill** - Rich text email editor
-- **Lucide Icons** - Beautiful icon set
+<div align="center">
 
-### Backend
-- **Node.js** + **Express** - RESTful API
-- **Nodemailer** - Gmail SMTP integration
-- **PDFKit** - Certificate generation
-- **XLSX & PapaParse** - Excel/CSV parsing
-- **Google AI (Gemini)** - Column detection
-- **Crypto-JS** - AES encryption
-- **JSON Database** - File-based storage (MVP)
+| **Frontend** | **Backend** |
+|:------------:|:-----------:|
+| ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB) | ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) |
+| ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white) | ![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white) |
+| ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white) | ![Nodemailer](https://img.shields.io/badge/Nodemailer-000000?style=for-the-badge&logo=gmail&logoColor=white) |
+| ![Framer](https://img.shields.io/badge/Framer-0055FF?style=for-the-badge&logo=framer&logoColor=white) | ![PDFKit](https://img.shields.io/badge/PDFKit-EC1C24?style=for-the-badge&logo=adobeacrobatreader&logoColor=white) |
+
+</div>
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ installed
-- Gmail account with App Password
+- **Node.js 18+** installed
+- **Gmail Account** with an [App Password](https://myaccount.google.com/apppasswords)
 
-### Installation
+### 📥 Installation
 
-1. **Clone the repository**
-```powershell
-git clone <repository-url>
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/YOUR_USERNAME/bulk-email.git
+cd bulk-email
 ```
 
-2. **Backend Setup (Terminal 1)**
-Open a terminal and run:
-```powershell
+#### 2. Backend Setup (Terminal 1)
+```bash
+# Open a new terminal for Backend
 cd backend
 npm install
-# Create .env file
+
+# Configure Environment
 cp .env.example .env
-# Edit .env with your credentials
+# Edit .env and set your secrets
+
+# Start Backend
 npm run dev
 ```
 
-3. **Frontend Setup (Terminal 2)**
-Open a second terminal and run:
-```powershell
+#### 3. Frontend Setup (Terminal 2)
+```bash
+# Open a new terminal for Frontend
 cd frontend
 npm install
+
+# Start Frontend
 npm run dev
 ```
 
-4. **Configuration (.env)**
-Edit `backend/.env`:
+### ⚙️ Configuration
+Create a `.env` file in the `backend` folder:
+
 ```env
 PORT=5000
 JWT_SECRET=your_super_secret_jwt_key_32chars_min
 ENCRYPTION_KEY=your_32_character_key_for_aes_encryption
 ```
 
-5. **Start the Application**
-With both terminals running `npm run dev`:
-- Frontend: http://localhost:3000
-- Backend: http://localhost:5000
+### 🏃‍♂️ Access the App
+With both terminals running, visit:
+- **Frontend App**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:5000](http://localhost:5000)
 
 ---
 
 ## 📖 Usage Guide
 
-### 1. First Login
-- Visit http://localhost:3000
-- Enter any email/password to create admin account
-- First login auto-creates admin user
+### 1️⃣ First Login
+- Navigate to **[http://localhost:3000](http://localhost:3000)**
+- Enter **ANY** email and password.
+- The **first user** is automatically created as the **Admin**.
 
-### 2. Configure SMTP
-- Go to **Settings**
-- Add Gmail email
-- Get Gmail App Password:
-  1. Go to Google Account → Security
-  2. Enable 2-Step Verification
-  3. Create App Password (Select "Mail" → "Other")
-  4. Copy 16-character password
-- Save settings
+### 2️⃣ Configure SMTP
+- Go to the **Settings** tab.
+- Enter your **Gmail Address**.
+- Enter your **App Password** (Not your login password!).
+  > 💡 _To get an App Password: Go to Google Account > Security > 2-Step Verification > App Passwords._
 
-### 3. Create Campaign
-
-#### Step 1: Upload File
-- Drag & drop or select Excel/CSV
-- AI detects Name & Email columns
-- Shows confidence scores
-
-#### Step 2: Edit Recipients
-- Review detected recipients
-- Add/remove rows manually
-- Validate emails
-- Remove duplicates
-
-#### Step 3: Email Template
-- Write subject with variables: `Certificate for {{name}}`
-- Use rich text or HTML editor
-- Insert dynamic variables:
-  - `{{name}}` - Recipient name
-  - `{{email}}` - Recipient email
-  - `{{event}}` - Event name
-  - `{{date}}` - Date
-- Preview with real recipient data
-
-#### Step 4: Certificate (Optional)
-- Enable certificate generation
-- Customize achievement text
-- Adjust name font size, position, color
-- Preview in real-time
-
-#### Step 5: Review & Send
-- Name your campaign
-- Review all settings
-- Click **Send Campaign**
-- Track progress in real-time
-
-### 4. Monitor Campaign
-- View real-time sending status
-- See success/failure rates
-- Export results as CSV
-- Check individual email statuses
+### 3️⃣ Create a Campaign
+1. **Upload**: Drag & drop your Excel/CSV file.
+2. **Review**: The AI will auto-detect Name/Email columns. Verify and edit if needed.
+3. **Compose**: Write your email using `{{name}}` variables.
+4. **Certificate**: (Optional) Toggle "Attach Certificate" and customize the template.
+5. **Send**: Click "Send Campaign" and watch the progress in real-time! 🚀
 
 ---
 
-## 📁 Project Structure
+## 📂 Project Structure
 
-```
+```bash
 bulk-email/
-├── backend/
-│   ├── routes/
-│   │   ├── auth.js          # Login, SMTP config
-│   │   ├── upload.js        # File parsing, AI detection
-│   │   ├── campaign.js      # Campaign CRUD
-│   │   ├── email.js         # Bulk sending
-│   │   └── certificate.js   # PDF generation
-│   ├── utils/
-│   │   ├── database.js      # JSON file operations
-│   │   └── helpers.js       # Encryption, validation
-│   ├── middleware/
-│   │   └── auth.js          # JWT verification
-│   ├── data/                # JSON database
-│   ├── uploads/             # Temporary file storage
-│   ├── certificates/        # Generated PDFs
-│   └── server.js            # Express app
+├── 📂 backend/         # Node.js + Express API
+│   ├── 📂 routes/      # Auth, Upload, Campaign endpoints
+│   ├── 📂 utils/       # DB helpers, Encryption
+│   ├── 📂 data/        # JSON Database (users.json, campaigns.json)
+│   └── 📂 uploads/     # Temp file storage
 │
-├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── NewCampaign.jsx
-│   │   │   ├── CampaignDetails.jsx
-│   │   │   └── Settings.jsx
-│   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   └── campaign/
-│   │   │       ├── FileUpload.jsx
-│   │   │       ├── RecipientTable.jsx
-│   │   │       ├── EmailEditor.jsx
-│   │   │       ├── CertificateEditor.jsx
-│   │   │       └── ReviewSend.jsx
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx
-│   │   ├── utils/
-│   │   │   └── api.js
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── tailwind.config.js
-│   └── vite.config.js
+├── 📂 frontend/        # React + Vite App
+│   ├── 📂 src/
+│   │   ├── 📂 components/ # UI Components (Editors, Tables)
+│   │   ├── 📂 pages/      # Dashboard, Settings
+│   │   └── 📂 context/    # Auth State Management
+│   └── 📄 main.jsx      # Entry Point
 │
-└── package.json
+├── 📂 docs/            # Detailed Documentation
+└── 📄 README.md        # You are here!
 ```
 
 ---
 
-## 🎨 Design System
+## 🔒 Security Measures
 
-### Colors
-- **Primary**: `#58a6ff` (GitHub Blue)
-- **Success**: `#3fb950` (GitHub Green)
-- **Error**: `#f85149` (GitHub Red)
-- **Warning**: `#d29922` (GitHub Orange)
-- **Background**: `#0d1117` (GitHub Dark)
-
-### Typography
-- **Display**: Space Mono (monospace)
-- **Body**: JetBrains Mono (monospace)
-
-### Animations
-- Fade in on page load
-- Slide up for cards
-- Hover scale for buttons
-- Smooth color transitions
-
----
-
-## 🔒 Security
-
-### Implemented
-✅ AES-256 encryption for SMTP passwords
-✅ JWT tokens with 7-day expiry
-✅ Password hashing with bcrypt
-✅ Email validation
-✅ CORS protection
-✅ Environment variables for secrets
-
-### Best Practices
-⚠️ Never commit `.env` file
-⚠️ Use strong JWT secret (32+ characters)
-⚠️ Use Gmail App Password (not account password)
-⚠️ Change default secrets in production
-
----
-
-## 🚧 Future Enhancements
-
-### v2.0 Planned Features
-- [ ] WhatsApp integration
-- [ ] QR codes on certificates
-- [ ] Public certificate verification
-- [ ] Google Sheets direct import
-- [ ] Drag-drop email builder
-- [ ] Team accounts (multi-user)
-- [ ] PostgreSQL/MongoDB support
-- [ ] Advanced scheduling
-- [ ] A/B testing templates
-- [ ] Analytics dashboard
-
----
-
-## 🐛 Troubleshooting
-
-### Gmail Sending Fails
-- Verify App Password (not account password)
-- Check 2-Step Verification is enabled
-- Try regenerating App Password
-- Check Gmail sending limits (500/day)
-
-### AI Detection Low Confidence
-- Check column headers have clear names
-- Ensure sample data is valid
-- Fallback to manual column selection
-
-### File Upload Fails
-- Max file size: 10MB
-- Supported: .xlsx, .xls, .csv
-- Ensure file has headers in first row
-
----
-
-## 📝 License
-
-This project is licensed under the [MIT License](LICENSE) - feel free to use for personal or commercial projects.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
-- Code of conduct
-- Development setup
-- Pull request process
-- Coding standards
+- **Zero-Knowledge Storage**: SMTP passwords are encrypted using **AES-256-CBC** before saving.
+- **Secure Sessions**: Authentication via **JWT** (JSON Web Tokens) with auto-expiry.
+- **Data Safety**: Inputs are sanitized to prevent injection attacks.
+- **Rate Control**: Built-in throttles to respect Gmail's sending limits.
 
 ---
 
 ## 📚 Documentation
 
-For detailed documentation, see the [`docs/`](docs/) folder:
-- [**Setup Guide**](docs/SETUP.md) - Complete installation and configuration
-- [**API Reference**](docs/API.md) - Full API documentation
-- [**Architecture**](docs/ARCHITECTURE.md) - Technical design and structure
+For more detailed information, check out the [`docs/`](docs/) folder:
+
+- **[📖 Setup Guide](docs/SETUP.md)**: Detailed installation and troubleshooting.
+- **[📡 API Reference](docs/API.md)**: Endpoints, request bodies, and examples.
+- **[🏗️ Architecture](docs/ARCHITECTURE.md)**: System design and data flow.
 
 ---
 
-## 🙏 Credits
+## 🤝 Contributing
 
-- **Google AI Studio** - Gemini API for column detection
-- **GitHub** - Design inspiration
-- **Nodemailer** - Email sending
-- **PDFKit** - Certificate generation
+We love contributions! Please read our [**Contributing Guide**](CONTRIBUTING.md) to get started.
 
----
-
-## 📬 Support
-
-For issues or questions:
-- Check troubleshooting guide above
-- Review console logs (F12 in browser)
-- Check backend terminal output
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
-**Built with ❤️ for making bulk email campaigns effortless**
+## 📝 License
+
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for hassle-free bulk emailing.**
+
+[Report Bug](https://github.com/YOUR_USERNAME/bulk-email/issues) • [Request Feature](https://github.com/YOUR_USERNAME/bulk-email/issues)
+
+</div>
