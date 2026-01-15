@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+/* React Quill Styles - Must come before Tailwind */
+@import 'react-quill/dist/quill.snow.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-github-darker text-gray-100 font-body;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-github-blue hover:bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95;
+    }
+
+    .btn-secondary {
+        @apply bg-github-hover hover:bg-github-border border border-github-border text-gray-200 px-6 py-2.5 rounded-lg font-medium transition-all duration-200;
+    }
+
+    .card {
+        @apply bg-github-dark border border-github-border rounded-xl p-6 shadow-xl hover:border-github-blue/50 transition-all duration-300;
+    }
+
+    .input-field {
+        @apply bg-github-hover border border-github-border text-gray-100 px-4 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-github-blue focus:border-transparent transition-all duration-200;
+    }
+
+    .table-row {
+        @apply border-b border-github-border hover:bg-github-hover transition-colors duration-150;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}
+
+/* Quill Editor Custom Styles */
+.email-editor .ql-toolbar {
+    background: #f3f4f6;
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+}
+
+.email-editor .ql-container {
+    background: white;
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    min-height: 300px;
+    font-size: 16px;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.email-editor .ql-editor {
+    min-height: 300px;
+    padding: 1.5rem;
+}
+
+.email-editor .ql-editor.ql-blank::before {
+    color: #9ca3af;
+    font-style: normal;
+}
+
+/* Preview content styles */
+.preview-content {
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+}
+
+.preview-content h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 0.5em 0;
+}
+
+.preview-content h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0.5em 0;
+}
+
+.preview-content h3 {
+    font-size: 1.17em;
+    font-weight: bold;
+    margin: 0.5em 0;
+}
+
+.preview-content p {
+    margin: 0.5em 0;
+}
+
+.preview-content ul,
+.preview-content ol {
+    margin: 0.5em 0;
+    padding-left: 2em;
+}
+
+.preview-content strong {
+    font-weight: bold;
+}
+
+.preview-content em {
+    font-style: italic;
+}
+
+.preview-content a {
+    color: #3b82f6;
+    text-decoration: underline;
+}
+
+.preview-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Animations */
+.animate-delay-100 {
+    animation-delay: 0.1s;
+}
+
+.animate-delay-200 {
+    animation-delay: 0.2s;
+}
+
+.animate-delay-300 {
+    animation-delay: 0.3s;
+}
+
+.animate-delay-400 {
+    animation-delay: 0.4s;
+}

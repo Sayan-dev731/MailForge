@@ -1,0 +1,17 @@
+{
+    "watch": [
+        "*.js",
+        "routes/",
+        "middleware/",
+        "utils/"
+    ],
+    "ignore": [
+        "data/",
+        "uploads/",
+        "certificates/",
+        "logs/",
+        "node_modules/"
+    ],
+    "ext": "js,json",
+    "delay": "500"
+}
