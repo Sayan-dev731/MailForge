@@ -1,19 +1,42 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Mail, Lock, Save, CheckCircle, AlertCircle } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import api from '../utils/api';
-import toast from 'react-hot-toast';
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import {
+    Mail,
+    Lock,
+    Save,
+    CheckCircle,
+    AlertCircle,
+    Server,
+    Shield,
+    User,
+    Plug,
+    ExternalLink,
+    Loader2,
+} from "lucide-react";
+import Navbar from "../components/Navbar";
+import api from "../utils/api";
+import toast from "react-hot-toast";
+import { SMTP_PROVIDERS, getProvider } from "../utils/smtpProviders";
+
+const DEFAULT_FORM = {
+    provider: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    email: "",
+    username: "",
+    password: "",
+    senderName: "",
+};
 
 export default function Settings() {
-    const [smtp, setSmtp] = useState({
-        email: '',
-        password: '',
-        senderName: '',
-    });
+    const [form, setForm] = useState(DEFAULT_FORM);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
     const [hasExisting, setHasExisting] = useState(false);
+
+    const provider = useMemo(() => getProvider(form.provider), [form.provider]);
 
     useEffect(() => {
         fetchSMTPSettings();
@@ -21,40 +44,120 @@ export default function Settings() {
 
     const fetchSMTPSettings = async () => {
         try {
-            const response = await api.get('/auth/smtp');
+            const response = await api.get("/auth/smtp");
             if (response.data.success && response.data.smtp) {
-                setSmtp({
-                    email: response.data.smtp.email || '',
-                    password: '', // Never show existing password
-                    senderName: response.data.smtp.senderName || '',
+                const s = response.data.smtp;
+                setForm({
+                    provider: s.provider || "custom",
+                    host: s.host || "",
+                    port: s.port || 465,
+                    secure: s.secure !== undefined ? s.secure : true,
+                    email: s.email || "",
+                    username: s.username || s.email || "",
+                    password: "",
+                    senderName: s.senderName || "",
                 });
-                setHasExisting(response.data.smtp.hasPassword);
+                setHasExisting(s.hasPassword);
             }
         } catch (error) {
-            console.error('Fetch SMTP error:', error);
+            console.error("Fetch SMTP error:", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const applyProvider = (id) => {
+        const p = getProvider(id);
+        setForm((prev) => ({
+            ...prev,
+            provider: p.id,
+            host: p.host || prev.host,
+            port: p.port,
+            secure: p.secure,
+            username: p.usernameIsEmail
+                ? prev.email || prev.username
+                : (p.defaultUsername ?? prev.username),
+        }));
+    };
+
+    const updateField = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+
+    const handleEmailChange = (email) => {
+        updateField({
+            email,
+            username: provider.usernameIsEmail ? email : form.username,
+        });
+    };
+
+    const handlePortChange = (raw) => {
+        const port = parseInt(raw, 10) || 0;
+        // Auto-toggle secure flag to the sensible default for the port
+        updateField({
+            port,
+            secure: port === 465,
+        });
+    };
+
+    const buildPayload = () => ({
+        provider: form.provider,
+        host: form.host.trim(),
+        port: Number(form.port),
+        secure: !!form.secure,
+        email: form.email.trim(),
+        username: (form.username || form.email).trim(),
+        password: form.password,
+        senderName: form.senderName.trim(),
+    });
+
+    const handleTest = async () => {
+        if (!form.host || !form.port || !form.email) {
+            toast.error("Host, port, and email are required to test");
+            return;
+        }
+        if (!form.password && !hasExisting) {
+            toast.error("Enter the password to test the connection");
+            return;
+        }
+        setTesting(true);
+        try {
+            // If password is empty but a saved one exists, send an empty payload
+            // and let the backend fall back to the stored credentials.
+            const payload = form.password ? buildPayload() : {};
+            const response = await api.post("/email/test-connection", payload);
+            if (response.data.success) {
+                toast.success(response.data.message || "SMTP connection OK");
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Connection failed");
+        } finally {
+            setTesting(false);
         }
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
 
-        if (!smtp.email || !smtp.password) {
-            toast.error('Email and App Password are required');
+        if (!form.email || !form.host || !form.port) {
+            toast.error("Email, host, and port are required");
+            return;
+        }
+        if (!form.password && !hasExisting) {
+            toast.error("Password / app password is required");
             return;
         }
 
         setSaving(true);
-
         try {
-            const response = await api.post('/auth/smtp', smtp);
+            const response = await api.post("/auth/smtp", buildPayload());
             if (response.data.success) {
-                toast.success('SMTP settings saved successfully!');
+                toast.success("SMTP settings saved successfully!");
                 setHasExisting(true);
+                setForm((prev) => ({ ...prev, password: "" }));
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to save settings');
+            toast.error(
+                error.response?.data?.message || "Failed to save settings",
+            );
         } finally {
             setSaving(false);
         }
@@ -70,8 +173,14 @@ export default function Settings() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-8"
                 >
-                    <h1 className="text-3xl font-display font-bold text-white mb-2">Settings</h1>
-                    <p className="text-gray-400">Configure your SMTP credentials for sending emails</p>
+                    <h1 className="text-3xl font-display font-bold text-white mb-2">
+                        Settings
+                    </h1>
+                    <p className="text-gray-400">
+                        Configure any SMTP provider — Gmail, Outlook, Zoho,
+                        Yahoo, SendGrid, Mailgun, Brevo, Amazon SES, or a custom
+                        server.
+                    </p>
                 </motion.div>
 
                 <motion.div
@@ -85,124 +194,316 @@ export default function Settings() {
                             <Mail className="w-6 h-6 text-github-blue" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white">Gmail SMTP Configuration</h2>
-                            <p className="text-sm text-gray-400">Configure your Gmail for sending emails (separate from app login)</p>
+                            <h2 className="text-xl font-bold text-white">
+                                SMTP Configuration
+                            </h2>
+                            <p className="text-sm text-gray-400">
+                                Credentials are encrypted with AES-256 and used
+                                only to send your campaigns.
+                            </p>
                         </div>
-                    </div>
-
-                    {/* Clarification Note */}
-                    <div className="mb-6 p-3 bg-github-green/10 border border-github-green/30 rounded-lg">
-                        <p className="text-sm text-github-green">
-                            💡 <strong>Note:</strong> These credentials are for sending emails only and are different from your app login.
-                            Use your Gmail address and a 16-character App Password from Google.
-                        </p>
                     </div>
 
                     {loading ? (
                         <div className="text-center py-12">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-github-blue mx-auto"></div>
-                            <p className="text-gray-400 mt-4">Loading settings...</p>
+                            <p className="text-gray-400 mt-4">
+                                Loading settings...
+                            </p>
                         </div>
                     ) : (
                         <form onSubmit={handleSave} className="space-y-6">
-                            {/* Gmail Email */}
+                            {/* Provider picker */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Gmail Email Address <span className="text-github-red">*</span>
+                                    Email Provider{" "}
+                                    <span className="text-github-red">*</span>
                                 </label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                <select
+                                    value={form.provider}
+                                    onChange={(e) =>
+                                        applyProvider(e.target.value)
+                                    }
+                                    className="input-field"
+                                >
+                                    {SMTP_PROVIDERS.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Picking a provider auto-fills the host,
+                                    port, and security mode below.
+                                </p>
+                            </div>
+
+                            {/* Host + Port */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        SMTP Host{" "}
+                                        <span className="text-github-red">
+                                            *
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <Server className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                        <input
+                                            type="text"
+                                            value={form.host}
+                                            onChange={(e) =>
+                                                updateField({
+                                                    host: e.target.value,
+                                                })
+                                            }
+                                            className="input-field pl-12"
+                                            placeholder="smtp.example.com"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Port{" "}
+                                        <span className="text-github-red">
+                                            *
+                                        </span>
+                                    </label>
                                     <input
-                                        type="email"
-                                        value={smtp.email}
-                                        onChange={(e) => setSmtp({ ...smtp, email: e.target.value })}
-                                        className="input-field pl-12"
-                                        placeholder="your-email@gmail.com"
+                                        type="number"
+                                        min="1"
+                                        max="65535"
+                                        value={form.port}
+                                        onChange={(e) =>
+                                            handlePortChange(e.target.value)
+                                        }
+                                        className="input-field"
                                         required
                                     />
                                 </div>
                             </div>
 
-                            {/* App Password */}
+                            {/* Secure toggle */}
+                            <div className="flex items-start space-x-3 p-3 rounded-lg border border-github-border bg-github-dark/40">
+                                <Shield className="w-5 h-5 text-github-blue mt-0.5" />
+                                <div className="flex-1">
+                                    <label className="flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={form.secure}
+                                            onChange={(e) =>
+                                                updateField({
+                                                    secure: e.target.checked,
+                                                })
+                                            }
+                                            className="mr-3 w-4 h-4"
+                                        />
+                                        <span className="text-sm text-white font-medium">
+                                            Use implicit TLS (SSL)
+                                        </span>
+                                    </label>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Enable for port 465. Leave off for port
+                                        587 / 25 (STARTTLS).
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Email + Username */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        From Email{" "}
+                                        <span className="text-github-red">
+                                            *
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                        <input
+                                            type="email"
+                                            value={form.email}
+                                            onChange={(e) =>
+                                                handleEmailChange(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="input-field pl-12"
+                                            placeholder="you@example.com"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        SMTP Username
+                                        {!provider.usernameIsEmail && (
+                                            <span className="text-github-red">
+                                                {" "}
+                                                *
+                                            </span>
+                                        )}
+                                    </label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                        <input
+                                            type="text"
+                                            value={form.username}
+                                            onChange={(e) =>
+                                                updateField({
+                                                    username: e.target.value,
+                                                })
+                                            }
+                                            className="input-field pl-12"
+                                            placeholder={
+                                                provider.usernameIsEmail
+                                                    ? "Defaults to your email"
+                                                    : provider.defaultUsername ||
+                                                      "SMTP login"
+                                            }
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        {provider.usernameIsEmail
+                                            ? "Most providers use your email as the SMTP login."
+                                            : "This provider uses a separate SMTP username."}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Password */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    App Password <span className="text-github-red">*</span>
+                                    {provider.passwordLabel}
+                                    {!hasExisting && (
+                                        <span className="text-github-red">
+                                            {" "}
+                                            *
+                                        </span>
+                                    )}
                                 </label>
                                 <div className="relative">
                                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
                                     <input
                                         type="password"
-                                        value={smtp.password}
-                                        onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
+                                        value={form.password}
+                                        onChange={(e) =>
+                                            updateField({
+                                                password: e.target.value,
+                                            })
+                                        }
                                         className="input-field pl-12"
-                                        placeholder={hasExisting ? '••••••••••••••••' : '16-character app password'}
+                                        placeholder={
+                                            hasExisting
+                                                ? "••••••••••••••••"
+                                                : provider.passwordHint
+                                        }
                                         required={!hasExisting}
+                                        autoComplete="new-password"
                                     />
                                 </div>
                                 {hasExisting && (
                                     <p className="text-xs text-github-green mt-2 flex items-center">
                                         <CheckCircle className="w-3 h-3 mr-1" />
-                                        Existing password saved (leave blank to keep current)
+                                        Existing password saved — leave blank to
+                                        keep it.
                                     </p>
                                 )}
                             </div>
 
-                            {/* Sender Name */}
+                            {/* Sender name */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Sender Name (Optional)
+                                    Sender Name (optional)
                                 </label>
                                 <input
                                     type="text"
-                                    value={smtp.senderName}
-                                    onChange={(e) => setSmtp({ ...smtp, senderName: e.target.value })}
+                                    value={form.senderName}
+                                    onChange={(e) =>
+                                        updateField({
+                                            senderName: e.target.value,
+                                        })
+                                    }
                                     className="input-field"
                                     placeholder="Your Name or Organization"
                                 />
                                 <p className="text-xs text-gray-500 mt-2">
-                                    This name will appear as the sender in recipient's inbox
+                                    Shown as the "From" name in recipients'
+                                    inboxes.
                                 </p>
                             </div>
 
-                            {/* Save Button */}
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {saving ? (
-                                    <>
-                                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span>Saving...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="w-5 h-5" />
-                                        <span>Save SMTP Settings</span>
-                                    </>
-                                )}
-                            </button>
+                            {/* Action buttons */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleTest}
+                                    disabled={testing}
+                                    className="btn-secondary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {testing ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <span>Testing…</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plug className="w-5 h-5" />
+                                            <span>Test Connection</span>
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <span>Saving…</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-5 h-5" />
+                                            <span>Save SMTP Settings</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </form>
                     )}
 
-                    {/* Instructions */}
+                    {/* Provider-specific guide */}
                     <div className="mt-8 p-4 bg-github-blue/10 border border-github-blue/30 rounded-lg">
-                        <h3 className="font-bold text-github-blue mb-2 flex items-center">
-                            <AlertCircle className="w-5 h-5 mr-2" />
-                            How to get Gmail App Password
+                        <h3 className="font-bold text-github-blue mb-3 flex items-center justify-between">
+                            <span className="flex items-center">
+                                <AlertCircle className="w-5 h-5 mr-2" />
+                                How to configure {provider.name}
+                            </span>
+                            {provider.docsUrl && (
+                                <a
+                                    href={provider.docsUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs flex items-center text-github-blue hover:underline"
+                                >
+                                    Official docs{" "}
+                                    <ExternalLink className="w-3 h-3 ml-1" />
+                                </a>
+                            )}
                         </h3>
                         <ol className="text-sm text-gray-300 space-y-2 list-decimal list-inside">
-                            <li>Go to your Google Account settings</li>
-                            <li>Navigate to Security → 2-Step Verification (enable if not already)</li>
-                            <li>Scroll to "App passwords" and click it</li>
-                            <li>Select "Mail" and "Other" (name it "MailForge AI")</li>
-                            <li>Copy the 16-character password and paste it above</li>
+                            {provider.steps.map((step, i) => (
+                                <li key={i}>{step}</li>
+                            ))}
                         </ol>
                         <p className="text-xs text-gray-400 mt-3">
-                            🔐 Your password is encrypted with AES-256 and never stored in plain text
+                            🔐 Your password is encrypted with AES-256 and never
+                            stored in plain text. Use the{" "}
+                            <strong>Test Connection</strong> button to confirm
+                            the credentials before saving.
                         </p>
                     </div>
                 </motion.div>

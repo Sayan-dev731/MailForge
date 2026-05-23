@@ -1,81 +1,87 @@
-import express from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { readDB, writeDB, findInDB, addToDB, updateInDB } from '../utils/database.js';
-import { encrypt, decrypt, generateId } from '../utils/helpers.js';
-import { authenticateToken } from '../middleware/auth.js';
+import express from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import {
+    readDB,
+    writeDB,
+    findInDB,
+    addToDB,
+    updateInDB,
+} from "../utils/database.js";
+import { encrypt, decrypt, generateId } from "../utils/helpers.js";
+import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_change_this';
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_change_this";
 
 // Signup - Create new user
-router.post('/signup', async (req, res) => {
+router.post("/signup", async (req, res) => {
     try {
         const { name, email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'Email and password required'
+                message: "Email and password required",
             });
         }
 
         if (password.length < 6) {
             return res.status(400).json({
                 success: false,
-                message: 'Password must be at least 6 characters'
+                message: "Password must be at least 6 characters",
             });
         }
 
-        const users = readDB('users');
-        const existingUser = users.find(u => u.email === email);
+        const users = readDB("users");
+        const existingUser = users.find((u) => u.email === email);
 
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                message: 'Email already registered'
+                message: "Email already registered",
             });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = {
             id: generateId(),
-            name: name || email.split('@')[0],
+            name: name || email.split("@")[0],
             email,
             password: hashedPassword,
-            role: users.length === 0 ? 'admin' : 'user',
+            role: users.length === 0 ? "admin" : "user",
             createdAt: new Date().toISOString(),
         };
 
-        addToDB('users', user);
+        addToDB("users", user);
 
         res.json({
             success: true,
-            message: 'Account created successfully'
+            message: "Account created successfully",
         });
     } catch (error) {
-        console.error('Signup error:', error);
+        console.error("Signup error:", error);
         res.status(500).json({
             success: false,
-            message: 'Signup failed'
+            message: "Signup failed",
         });
     }
 });
 
 // Register/Login (simplified - auto-create admin on first run)
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'Email and password required'
+                message: "Email and password required",
             });
         }
 
-        const users = readDB('users');
-        let user = users.find(u => u.email === email);
+        const users = readDB("users");
+        let user = users.find((u) => u.email === email);
 
         // First time login - create admin account
         if (users.length === 0) {
@@ -84,16 +90,16 @@ router.post('/login', async (req, res) => {
                 id: generateId(),
                 email,
                 password: hashedPassword,
-                role: 'admin',
+                role: "admin",
                 createdAt: new Date().toISOString(),
             };
-            addToDB('users', user);
+            addToDB("users", user);
         }
 
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid credentials'
+                message: "Invalid credentials",
             });
         }
 
@@ -102,16 +108,14 @@ router.post('/login', async (req, res) => {
         if (!validPassword) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid credentials'
+                message: "Invalid credentials",
             });
         }
 
         // Generate JWT
-        const token = jwt.sign(
-            { id: user.id, email: user.email },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+            expiresIn: "7d",
+        });
 
         res.json({
             success: true,
@@ -123,24 +127,24 @@ router.post('/login', async (req, res) => {
             },
         });
     } catch (error) {
-        console.error('Login error:', error);
+        console.error("Login error:", error);
         res.status(500).json({
             success: false,
-            message: 'Login failed'
+            message: "Login failed",
         });
     }
 });
 
 // Get SMTP settings
-router.get('/smtp', authenticateToken, (req, res) => {
+router.get("/smtp", authenticateToken, (req, res) => {
     try {
-        const settings = readDB('settings');
+        const settings = readDB("settings");
         const userSettings = settings[req.user.id];
 
         if (!userSettings || !userSettings.smtp) {
             return res.json({
                 success: true,
-                smtp: null
+                smtp: null,
             });
         }
 
@@ -148,57 +152,94 @@ router.get('/smtp', authenticateToken, (req, res) => {
         res.json({
             success: true,
             smtp: {
+                provider: userSettings.smtp.provider || "gmail",
+                host: userSettings.smtp.host || "",
+                port: userSettings.smtp.port || 465,
+                secure:
+                    userSettings.smtp.secure !== undefined
+                        ? userSettings.smtp.secure
+                        : true,
                 email: userSettings.smtp.email,
+                username: userSettings.smtp.username || userSettings.smtp.email,
                 senderName: userSettings.smtp.senderName,
                 hasPassword: !!userSettings.smtp.password,
             },
         });
     } catch (error) {
-        console.error('Get SMTP error:', error);
+        console.error("Get SMTP error:", error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get SMTP settings'
+            message: "Failed to get SMTP settings",
         });
     }
 });
 
 // Save SMTP settings
-router.post('/smtp', authenticateToken, (req, res) => {
+router.post("/smtp", authenticateToken, (req, res) => {
     try {
-        const { email, password, senderName } = req.body;
+        const {
+            provider,
+            host,
+            port,
+            secure,
+            email,
+            username,
+            password,
+            senderName,
+        } = req.body;
 
-        if (!email || !password) {
+        if (!email || !host || !port) {
             return res.status(400).json({
                 success: false,
-                message: 'Email and App Password required'
+                message: "Email, SMTP host, and port are required",
             });
         }
 
-        // Encrypt password
-        const encryptedPassword = encrypt(password);
+        const settings = readDB("settings");
+        const existing = settings[req.user.id]?.smtp;
 
-        const settings = readDB('settings');
+        // If password not provided, keep existing one (allows editing other fields)
+        let encryptedPassword;
+        if (password) {
+            encryptedPassword = encrypt(password);
+        } else if (existing?.password) {
+            encryptedPassword = existing.password;
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Password / App Password is required",
+            });
+        }
+
+        const portNum = parseInt(port, 10);
+
         settings[req.user.id] = {
             ...settings[req.user.id],
             smtp: {
+                provider: provider || "custom",
+                host: String(host).trim(),
+                port: portNum,
+                // Default: secure (implicit TLS) for 465, STARTTLS otherwise
+                secure: typeof secure === "boolean" ? secure : portNum === 465,
                 email,
+                username: username || email,
                 password: encryptedPassword,
                 senderName: senderName || email,
                 updatedAt: new Date().toISOString(),
             },
         };
 
-        writeDB('settings', settings);
+        writeDB("settings", settings);
 
         res.json({
             success: true,
-            message: 'SMTP settings saved successfully',
+            message: "SMTP settings saved successfully",
         });
     } catch (error) {
-        console.error('Save SMTP error:', error);
+        console.error("Save SMTP error:", error);
         res.status(500).json({
             success: false,
-            message: 'Failed to save SMTP settings'
+            message: "Failed to save SMTP settings",
         });
     }
 });
@@ -206,29 +247,35 @@ router.post('/smtp', authenticateToken, (req, res) => {
 // Get decrypted SMTP for internal use
 export function getDecryptedSMTP(userId) {
     try {
-        const settings = readDB('settings');
+        const settings = readDB("settings");
         const userSettings = settings[userId];
 
         if (!userSettings || !userSettings.smtp) {
             return null;
         }
 
+        const s = userSettings.smtp;
         return {
-            email: userSettings.smtp.email,
-            password: decrypt(userSettings.smtp.password),
-            senderName: userSettings.smtp.senderName,
+            provider: s.provider || "gmail",
+            host: s.host || "smtp.gmail.com",
+            port: s.port || 465,
+            secure: s.secure !== undefined ? s.secure : true,
+            email: s.email,
+            username: s.username || s.email,
+            password: decrypt(s.password),
+            senderName: s.senderName,
         };
     } catch (error) {
-        console.error('Get decrypted SMTP error:', error);
+        console.error("Get decrypted SMTP error:", error);
         return null;
     }
 }
 
 // Verify token
-router.get('/verify', authenticateToken, (req, res) => {
+router.get("/verify", authenticateToken, (req, res) => {
     res.json({
         success: true,
-        user: req.user
+        user: req.user,
     });
 });
 

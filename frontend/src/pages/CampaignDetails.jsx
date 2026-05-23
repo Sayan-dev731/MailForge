@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
     ArrowLeft,
     Mail,
@@ -15,11 +15,27 @@ import {
     RotateCcw,
     Trash2,
     StopCircle,
-} from 'lucide-react';
-import Navbar from '../components/Navbar';
-import api from '../utils/api';
-import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+    Terminal,
+    Radio,
+} from "lucide-react";
+import Navbar from "../components/Navbar";
+import api from "../utils/api";
+import toast from "react-hot-toast";
+import { format } from "date-fns";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+// Merge a tail of recent results from an SSE 'progress' event into the existing
+// results array without duplicating entries already present.
+function mergeResults(prev = [], recent = []) {
+    if (!recent || recent.length === 0) return prev || [];
+    if (!prev || prev.length === 0) return recent.slice();
+    const seen = new Set(prev.map((r) => `${r.email}::${r.status}`));
+    const additions = recent.filter(
+        (r) => !seen.has(`${r.email}::${r.status}`),
+    );
+    return additions.length ? [...prev, ...additions] : prev;
+}
 
 export default function CampaignDetails() {
     const { id } = useParams();
@@ -28,9 +44,13 @@ export default function CampaignDetails() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [liveLogs, setLiveLogs] = useState([]);
+    const [sseConnected, setSseConnected] = useState(false);
     const intervalRef = useRef(null);
     const pollCountRef = useRef(0);
     const isFetchingRef = useRef(false);
+    const esRef = useRef(null);
+    const logsEndRef = useRef(null);
 
     useEffect(() => {
         const loadCampaign = async () => {
@@ -45,8 +65,9 @@ export default function CampaignDetails() {
     }, [id]);
 
     useEffect(() => {
-        // Start polling when campaign is sending
-        if (campaign?.status === 'sending') {
+        // Start polling when campaign is sending — but ONLY as a fallback
+        // when the SSE stream isn't connected. SSE delivers updates instantly.
+        if (campaign?.status === "sending" && !sseConnected) {
             pollCountRef.current = 0;
             // Fetch immediately first
             fetchStatus();
@@ -57,12 +78,14 @@ export default function CampaignDetails() {
                     if (pollCountRef.current >= 150) {
                         clearInterval(intervalRef.current);
                         intervalRef.current = null;
-                        toast.error('Polling timeout. Please refresh manually.');
+                        toast.error(
+                            "Polling timeout. Please refresh manually.",
+                        );
                         return;
                     }
                     fetchStatus();
                     pollCountRef.current++;
-                }, 2000); // Increased from 1s to 2s to reduce load
+                }, 2000);
             }
         } else {
             if (intervalRef.current) {
@@ -78,7 +101,131 @@ export default function CampaignDetails() {
                 intervalRef.current = null;
             }
         };
-    }, [campaign?.status]);
+    }, [campaign?.status, sseConnected]);
+
+    // Real-time SSE stream: live logs + progress updates with no page refresh.
+    useEffect(() => {
+        if (!id) return;
+        // Only stream while sending; for terminal states, polling/static fetch is enough.
+        if (campaign?.status && campaign.status !== "sending") {
+            if (esRef.current) {
+                esRef.current.close();
+                esRef.current = null;
+                setSseConnected(false);
+            }
+            return;
+        }
+
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const url = `${API_BASE}/email/stream/${id}?token=${encodeURIComponent(token)}`;
+        const es = new EventSource(url);
+        esRef.current = es;
+
+        const appendLog = (entry) => {
+            if (!entry) return;
+            setLiveLogs((prev) => {
+                const next = [...prev, entry];
+                // Keep last 500 entries client-side
+                return next.length > 500 ? next.slice(next.length - 500) : next;
+            });
+        };
+
+        es.addEventListener("snapshot", (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (Array.isArray(data.logs)) setLiveLogs(data.logs);
+                setCampaign((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              status: data.status || prev.status,
+                              stats: data.stats || prev.stats,
+                              results: data.results || prev.results,
+                          }
+                        : prev,
+                );
+            } catch {
+                /* ignore malformed frame */
+            }
+        });
+
+        es.addEventListener("log", (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                appendLog(data.entry);
+            } catch {
+                /* ignore */
+            }
+        });
+
+        es.addEventListener("progress", (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                setCampaign((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              status: data.status || prev.status,
+                              stats: data.stats || prev.stats,
+                              // Merge "recent" results into the tail (avoid duplicates by email+status)
+                              results: mergeResults(prev.results, data.recent),
+                          }
+                        : prev,
+                );
+            } catch {
+                /* ignore */
+            }
+        });
+
+        es.addEventListener("done", (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                setCampaign((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              status: data.status || "completed",
+                              stats: data.stats || prev.stats,
+                          }
+                        : prev,
+                );
+            } catch {
+                /* ignore */
+            }
+            es.close();
+            esRef.current = null;
+            setSseConnected(false);
+            // Refresh full campaign record from DB so results array is complete.
+            fetchCampaign();
+        });
+
+        es.onopen = () => setSseConnected(true);
+        es.onerror = () => {
+            // EventSource will auto-reconnect; if it's hard-closed, fall back to polling.
+            if (es.readyState === EventSource.CLOSED) {
+                setSseConnected(false);
+                esRef.current = null;
+            }
+        };
+
+        return () => {
+            es.close();
+            esRef.current = null;
+            setSseConnected(false);
+        };
+    }, [id, campaign?.status]);
+
+    // Auto-scroll log panel to bottom on new entries.
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "end",
+            });
+        }
+    }, [liveLogs.length]);
 
     const fetchCampaign = async () => {
         try {
@@ -87,8 +234,8 @@ export default function CampaignDetails() {
                 setCampaign(response.data.campaign);
             }
         } catch (error) {
-            toast.error('Campaign not found');
-            navigate('/');
+            toast.error("Campaign not found");
+            navigate("/");
         } finally {
             setLoading(false);
         }
@@ -102,7 +249,7 @@ export default function CampaignDetails() {
         try {
             const response = await api.get(`/email/status/${id}`);
             if (response.data.success) {
-                setCampaign(prev => ({
+                setCampaign((prev) => ({
                     ...prev,
                     status: response.data.status,
                     stats: response.data.stats,
@@ -110,7 +257,10 @@ export default function CampaignDetails() {
                 }));
 
                 // Stop polling if campaign is completed or failed
-                if (response.data.status === 'completed' || response.data.status === 'failed') {
+                if (
+                    response.data.status === "completed" ||
+                    response.data.status === "failed"
+                ) {
                     if (intervalRef.current) {
                         clearInterval(intervalRef.current);
                         intervalRef.current = null;
@@ -118,7 +268,7 @@ export default function CampaignDetails() {
                 }
             }
         } catch (error) {
-            console.error('Failed to fetch status:', error);
+            console.error("Failed to fetch status:", error);
             // Stop polling on repeated errors
             if (pollCountRef.current > 10) {
                 if (intervalRef.current) {
@@ -138,7 +288,11 @@ export default function CampaignDetails() {
     };
 
     const handleResend = async () => {
-        if (!window.confirm('Are you sure you want to resend this campaign? This will send emails to ALL recipients again.')) {
+        if (
+            !window.confirm(
+                "Are you sure you want to resend this campaign? This will send emails to ALL recipients again.",
+            )
+        ) {
             return;
         }
 
@@ -146,11 +300,13 @@ export default function CampaignDetails() {
         try {
             const response = await api.post(`/email/send-bulk/${id}`);
             if (response.data.success) {
-                toast.success('🚀 Campaign resending started!');
-                setCampaign(prev => ({ ...prev, status: 'sending' }));
+                toast.success("🚀 Campaign resending started!");
+                setCampaign((prev) => ({ ...prev, status: "sending" }));
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to resend campaign');
+            toast.error(
+                error.response?.data?.message || "Failed to resend campaign",
+            );
         } finally {
             setIsSending(false);
         }
@@ -161,46 +317,56 @@ export default function CampaignDetails() {
         try {
             const response = await api.post(`/email/resend-failed/${id}`);
             if (response.data.success) {
-                toast.success('🚀 Resending to failed recipients...');
-                setCampaign(prev => ({ ...prev, status: 'sending' }));
+                toast.success("🚀 Resending to failed recipients...");
+                setCampaign((prev) => ({ ...prev, status: "sending" }));
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to resend');
+            toast.error(error.response?.data?.message || "Failed to resend");
         } finally {
             setIsSending(false);
         }
     };
 
     const handleEditCampaign = () => {
-        navigate('/campaign/new', { state: { editCampaign: campaign } });
+        navigate("/campaign/new", { state: { editCampaign: campaign } });
     };
 
     const handleDelete = async () => {
-        if (!window.confirm(`Are you sure you want to delete "${campaign.name}"? This action cannot be undone.`)) {
+        if (
+            !window.confirm(
+                `Are you sure you want to delete "${campaign.name}"? This action cannot be undone.`,
+            )
+        ) {
             return;
         }
 
         try {
             const response = await api.delete(`/campaign/${id}`);
             if (response.data.success) {
-                toast.success('Campaign deleted successfully');
-                navigate('/');
+                toast.success("Campaign deleted successfully");
+                navigate("/");
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to delete campaign');
+            toast.error(
+                error.response?.data?.message || "Failed to delete campaign",
+            );
         }
     };
 
     const handleStop = async () => {
-        if (!window.confirm('Are you sure you want to stop this campaign? Emails already sent cannot be recalled.')) {
+        if (
+            !window.confirm(
+                "Are you sure you want to stop this campaign? Emails already sent cannot be recalled.",
+            )
+        ) {
             return;
         }
 
         try {
             const response = await api.post(`/campaign/${id}/stop`);
             if (response.data.success) {
-                toast.success('Campaign stopped');
-                setCampaign(prev => ({ ...prev, status: 'stopped' }));
+                toast.success("Campaign stopped");
+                setCampaign((prev) => ({ ...prev, status: "stopped" }));
                 // Stop polling
                 if (intervalRef.current) {
                     clearInterval(intervalRef.current);
@@ -208,7 +374,9 @@ export default function CampaignDetails() {
                 }
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to stop campaign');
+            toast.error(
+                error.response?.data?.message || "Failed to stop campaign",
+            );
         }
     };
 
@@ -216,33 +384,33 @@ export default function CampaignDetails() {
         if (!campaign?.results) return;
 
         const csv = [
-            ['Email', 'Status', 'Error'].join(','),
+            ["Email", "Status", "Error"].join(","),
             ...campaign.results.map((r) =>
-                [r.email, r.status, r.error || ''].join(',')
+                [r.email, r.status, r.error || ""].join(","),
             ),
-        ].join('\n');
+        ].join("\n");
 
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const blob = new Blob([csv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `campaign-${campaign.name}-results.csv`;
         a.click();
-        toast.success('Results exported!');
+        toast.success("Results exported!");
     };
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'completed':
-                return 'text-github-green bg-github-green/10 border-github-green/30';
-            case 'sending':
-                return 'text-github-orange bg-github-orange/10 border-github-orange/30';
-            case 'failed':
-                return 'text-github-red bg-github-red/10 border-github-red/30';
-            case 'stopped':
-                return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+            case "completed":
+                return "text-github-green bg-github-green/10 border-github-green/30";
+            case "sending":
+                return "text-github-orange bg-github-orange/10 border-github-orange/30";
+            case "failed":
+                return "text-github-red bg-github-red/10 border-github-red/30";
+            case "stopped":
+                return "text-yellow-400 bg-yellow-400/10 border-yellow-400/30";
             default:
-                return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
+                return "text-gray-400 bg-gray-400/10 border-gray-400/30";
         }
     };
 
@@ -262,9 +430,16 @@ export default function CampaignDetails() {
         return null;
     }
 
-    const stats = campaign.stats || { total: 0, sent: 0, failed: 0, pending: 0 };
-    const successRate = stats.total > 0 ? ((stats.sent / stats.total) * 100).toFixed(1) : 0;
-    const progress = stats.total > 0 ? ((stats.sent + stats.failed) / stats.total) * 100 : 0;
+    const stats = campaign.stats || {
+        total: 0,
+        sent: 0,
+        failed: 0,
+        pending: 0,
+    };
+    const successRate =
+        stats.total > 0 ? ((stats.sent / stats.total) * 100).toFixed(1) : 0;
+    const progress =
+        stats.total > 0 ? ((stats.sent + stats.failed) / stats.total) * 100 : 0;
 
     return (
         <div className="min-h-screen bg-github-darker">
@@ -290,7 +465,8 @@ export default function CampaignDetails() {
                                 {campaign.name}
                             </h1>
                             <p className="text-gray-400">
-                                Created on {format(new Date(campaign.createdAt), 'PPP')}
+                                Created on{" "}
+                                {format(new Date(campaign.createdAt), "PPP")}
                             </p>
                         </div>
                         <div className="flex items-center flex-wrap gap-3">
@@ -299,10 +475,15 @@ export default function CampaignDetails() {
                                 className="btn-secondary flex items-center space-x-2"
                                 disabled={refreshing}
                             >
-                                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                                <RefreshCw
+                                    className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+                                />
                                 <span>Refresh</span>
                             </button>
-                            <button onClick={exportResults} className="btn-secondary flex items-center space-x-2">
+                            <button
+                                onClick={exportResults}
+                                className="btn-secondary flex items-center space-x-2"
+                            >
                                 <Download className="w-4 h-4" />
                                 <span>Export</span>
                             </button>
@@ -313,17 +494,18 @@ export default function CampaignDetails() {
                                 <Edit className="w-4 h-4" />
                                 <span>Edit</span>
                             </button>
-                            {campaign.status === 'completed' && stats.failed > 0 && (
-                                <button
-                                    onClick={handleResendFailed}
-                                    disabled={isSending}
-                                    className="btn-secondary flex items-center space-x-2 text-github-orange hover:bg-github-orange/10"
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                    <span>Resend Failed</span>
-                                </button>
-                            )}
-                            {campaign.status === 'sending' && (
+                            {campaign.status === "completed" &&
+                                stats.failed > 0 && (
+                                    <button
+                                        onClick={handleResendFailed}
+                                        disabled={isSending}
+                                        className="btn-secondary flex items-center space-x-2 text-github-orange hover:bg-github-orange/10"
+                                    >
+                                        <RotateCcw className="w-4 h-4" />
+                                        <span>Resend Failed</span>
+                                    </button>
+                                )}
+                            {campaign.status === "sending" && (
                                 <button
                                     onClick={handleStop}
                                     className="btn-secondary flex items-center space-x-2 text-yellow-400 hover:bg-yellow-400/10"
@@ -332,7 +514,7 @@ export default function CampaignDetails() {
                                     <span>Stop</span>
                                 </button>
                             )}
-                            {campaign.status !== 'sending' && (
+                            {campaign.status !== "sending" && (
                                 <button
                                     onClick={handleResend}
                                     disabled={isSending}
@@ -343,7 +525,11 @@ export default function CampaignDetails() {
                                     ) : (
                                         <Send className="w-4 h-4" />
                                     )}
-                                    <span>{isSending ? 'Starting...' : 'Resend All'}</span>
+                                    <span>
+                                        {isSending
+                                            ? "Starting..."
+                                            : "Resend All"}
+                                    </span>
                                 </button>
                             )}
                             <button
@@ -358,7 +544,7 @@ export default function CampaignDetails() {
                 </motion.div>
 
                 {/* Live Sending Progress */}
-                {campaign.status === 'sending' && (
+                {campaign.status === "sending" && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -372,9 +558,12 @@ export default function CampaignDetails() {
                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-github-orange rounded-full animate-ping"></div>
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">📤 Sending Emails...</h2>
+                                <h2 className="text-xl font-bold text-white">
+                                    📤 Sending Emails...
+                                </h2>
                                 <p className="text-gray-400">
-                                    {stats.sent + stats.failed} of {stats.total} processed • {stats.pending} remaining
+                                    {stats.sent + stats.failed} of {stats.total}{" "}
+                                    processed • {stats.pending} remaining
                                 </p>
                             </div>
                         </div>
@@ -390,9 +579,15 @@ export default function CampaignDetails() {
                                 />
                             </div>
                             <div className="flex justify-between mt-2 text-sm">
-                                <span className="text-github-green">✓ {stats.sent} sent</span>
-                                <span className="text-gray-400">{Math.round(progress)}% complete</span>
-                                <span className="text-github-red">✗ {stats.failed} failed</span>
+                                <span className="text-github-green">
+                                    ✓ {stats.sent} sent
+                                </span>
+                                <span className="text-gray-400">
+                                    {Math.round(progress)}% complete
+                                </span>
+                                <span className="text-github-red">
+                                    ✗ {stats.failed} failed
+                                </span>
                             </div>
                         </div>
 
@@ -400,26 +595,97 @@ export default function CampaignDetails() {
                         {campaign.results && campaign.results.length > 0 && (
                             <div className="mt-4 max-h-32 overflow-y-auto">
                                 <AnimatePresence>
-                                    {campaign.results.slice(-5).reverse().map((result, idx) => (
-                                        <motion.div
-                                            key={`${result.email}-${idx}`}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            className={`flex items-center space-x-2 text-sm py-1 ${result.status === 'sent' ? 'text-github-green' : 'text-github-red'
+                                    {campaign.results
+                                        .slice(-5)
+                                        .reverse()
+                                        .map((result, idx) => (
+                                            <motion.div
+                                                key={`${result.email}-${idx}`}
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className={`flex items-center space-x-2 text-sm py-1 ${
+                                                    result.status === "sent"
+                                                        ? "text-github-green"
+                                                        : "text-github-red"
                                                 }`}
-                                        >
-                                            {result.status === 'sent' ? (
-                                                <CheckCircle className="w-4 h-4" />
-                                            ) : (
-                                                <XCircle className="w-4 h-4" />
-                                            )}
-                                            <span>{result.email}</span>
-                                            {result.error && <span className="text-gray-500">- {result.error}</span>}
-                                        </motion.div>
-                                    ))}
+                                            >
+                                                {result.status === "sent" ? (
+                                                    <CheckCircle className="w-4 h-4" />
+                                                ) : (
+                                                    <XCircle className="w-4 h-4" />
+                                                )}
+                                                <span>{result.email}</span>
+                                                {result.error && (
+                                                    <span className="text-gray-500">
+                                                        - {result.error}
+                                                    </span>
+                                                )}
+                                            </motion.div>
+                                        ))}
                                 </AnimatePresence>
                             </div>
                         )}
+
+                        {/* Live Terminal — real-time backend log stream via SSE */}
+                        <div className="mt-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2 text-sm font-medium text-gray-300">
+                                    <Terminal className="w-4 h-4 text-github-orange" />
+                                    <span>Live Console</span>
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs">
+                                    <Radio
+                                        className={`w-3 h-3 ${sseConnected ? "text-github-green animate-pulse" : "text-gray-500"}`}
+                                    />
+                                    <span
+                                        className={
+                                            sseConnected
+                                                ? "text-github-green"
+                                                : "text-gray-500"
+                                        }
+                                    >
+                                        {sseConnected
+                                            ? "Streaming live"
+                                            : "Polling fallback"}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="font-mono text-xs bg-black/80 text-green-300 rounded-lg p-3 max-h-72 overflow-y-auto border border-github-border">
+                                {liveLogs.length === 0 ? (
+                                    <div className="text-gray-500">
+                                        Waiting for log output…
+                                    </div>
+                                ) : (
+                                    liveLogs.map((entry, idx) => {
+                                        const color =
+                                            entry.level === "error"
+                                                ? "text-red-400"
+                                                : entry.level === "warn"
+                                                  ? "text-yellow-300"
+                                                  : entry.level === "success"
+                                                    ? "text-green-400"
+                                                    : "text-gray-300";
+                                        const ts = entry.ts
+                                            ? new Date(
+                                                  entry.ts,
+                                              ).toLocaleTimeString()
+                                            : "";
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className={`whitespace-pre-wrap break-words ${color}`}
+                                            >
+                                                <span className="text-gray-600">
+                                                    [{ts}]
+                                                </span>{" "}
+                                                {entry.message}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={logsEndRef} />
+                            </div>
+                        </div>
                     </motion.div>
                 )}
 
@@ -431,13 +697,15 @@ export default function CampaignDetails() {
                     className="card mb-8"
                 >
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-bold text-white">Campaign Status</h2>
+                        <h2 className="text-xl font-bold text-white">
+                            Campaign Status
+                        </h2>
                         <span
                             className={`px-4 py-2 rounded-full text-sm font-medium border ${getStatusColor(
-                                campaign.status
+                                campaign.status,
                             )}`}
                         >
-                            {campaign.status === 'sending' && (
+                            {campaign.status === "sending" && (
                                 <span className="inline-block w-2 h-2 bg-github-orange rounded-full mr-2 animate-pulse"></span>
                             )}
                             {campaign.status?.toUpperCase()}
@@ -449,23 +717,33 @@ export default function CampaignDetails() {
                             <div className="w-16 h-16 bg-github-blue/20 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <Users className="w-8 h-8 text-github-blue" />
                             </div>
-                            <p className="text-3xl font-bold text-white mb-1">{stats.total}</p>
-                            <p className="text-sm text-gray-400">Total Recipients</p>
+                            <p className="text-3xl font-bold text-white mb-1">
+                                {stats.total}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                                Total Recipients
+                            </p>
                         </div>
 
                         <div className="text-center">
                             <div className="w-16 h-16 bg-github-green/20 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <CheckCircle className="w-8 h-8 text-github-green" />
                             </div>
-                            <p className="text-3xl font-bold text-github-green mb-1">{stats.sent}</p>
-                            <p className="text-sm text-gray-400">Sent Successfully</p>
+                            <p className="text-3xl font-bold text-github-green mb-1">
+                                {stats.sent}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                                Sent Successfully
+                            </p>
                         </div>
 
                         <div className="text-center">
                             <div className="w-16 h-16 bg-github-red/20 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <XCircle className="w-8 h-8 text-github-red" />
                             </div>
-                            <p className="text-3xl font-bold text-github-red mb-1">{stats.failed}</p>
+                            <p className="text-3xl font-bold text-github-red mb-1">
+                                {stats.failed}
+                            </p>
                             <p className="text-sm text-gray-400">Failed</p>
                         </div>
 
@@ -473,7 +751,9 @@ export default function CampaignDetails() {
                             <div className="w-16 h-16 bg-github-orange/20 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <Clock className="w-8 h-8 text-github-orange" />
                             </div>
-                            <p className="text-3xl font-bold text-github-orange mb-1">{stats.pending}</p>
+                            <p className="text-3xl font-bold text-github-orange mb-1">
+                                {stats.pending}
+                            </p>
                             <p className="text-sm text-gray-400">Pending</p>
                         </div>
                     </div>
@@ -482,7 +762,9 @@ export default function CampaignDetails() {
                     <div className="mt-8">
                         <div className="flex items-center justify-between mb-2">
                             <p className="text-sm text-gray-400">Progress</p>
-                            <p className="text-sm font-medium text-white">{successRate}% Success Rate</p>
+                            <p className="text-sm font-medium text-white">
+                                {successRate}% Success Rate
+                            </p>
                         </div>
                         <div className="w-full h-3 bg-github-hover rounded-full overflow-hidden">
                             <div
@@ -501,14 +783,28 @@ export default function CampaignDetails() {
                         transition={{ delay: 0.15 }}
                         className="card mb-8"
                     >
-                        <h2 className="text-xl font-bold text-white mb-4">Email Template</h2>
+                        <h2 className="text-xl font-bold text-white mb-4">
+                            Email Template
+                        </h2>
                         <div className="bg-github-hover border border-github-border rounded-lg p-4">
-                            <p className="text-sm text-gray-400 mb-1">Subject:</p>
-                            <p className="text-white font-medium mb-4">{campaign.emailTemplate.subject}</p>
-                            <p className="text-sm text-gray-400 mb-1">Body Preview:</p>
+                            <p className="text-sm text-gray-400 mb-1">
+                                Subject:
+                            </p>
+                            <p className="text-white font-medium mb-4">
+                                {campaign.emailTemplate.subject}
+                            </p>
+                            <p className="text-sm text-gray-400 mb-1">
+                                Body Preview:
+                            </p>
                             <div
                                 className="text-gray-300 text-sm bg-white/5 p-4 rounded max-h-40 overflow-y-auto"
-                                dangerouslySetInnerHTML={{ __html: campaign.emailTemplate.body?.substring(0, 500) + '...' }}
+                                dangerouslySetInnerHTML={{
+                                    __html:
+                                        campaign.emailTemplate.body?.substring(
+                                            0,
+                                            500,
+                                        ) + "...",
+                                }}
                             />
                         </div>
                     </motion.div>
@@ -522,30 +818,46 @@ export default function CampaignDetails() {
                         transition={{ delay: 0.2 }}
                         className="card"
                     >
-                        <h2 className="text-xl font-bold text-white mb-6">Detailed Results</h2>
+                        <h2 className="text-xl font-bold text-white mb-6">
+                            Detailed Results
+                        </h2>
                         <div className="overflow-x-auto max-h-96">
                             <table className="w-full">
                                 <thead className="sticky top-0 bg-github-dark">
                                     <tr className="border-b border-github-border">
-                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">#</th>
-                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Email</th>
-                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Status</th>
-                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Error</th>
+                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">
+                                            #
+                                        </th>
+                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">
+                                            Email
+                                        </th>
+                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">
+                                            Status
+                                        </th>
+                                        <th className="text-left py-3 px-4 text-gray-400 font-medium">
+                                            Error
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {campaign.results.map((result, index) => (
                                         <tr key={index} className="table-row">
-                                            <td className="py-3 px-4 text-gray-400">{index + 1}</td>
-                                            <td className="py-3 px-4 text-white">{result.email}</td>
+                                            <td className="py-3 px-4 text-gray-400">
+                                                {index + 1}
+                                            </td>
+                                            <td className="py-3 px-4 text-white">
+                                                {result.email}
+                                            </td>
                                             <td className="py-3 px-4">
                                                 <span
-                                                    className={`inline-flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${result.status === 'sent'
-                                                        ? 'bg-github-green/20 text-github-green'
-                                                        : 'bg-github-red/20 text-github-red'
-                                                        }`}
+                                                    className={`inline-flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
+                                                        result.status === "sent"
+                                                            ? "bg-github-green/20 text-github-green"
+                                                            : "bg-github-red/20 text-github-red"
+                                                    }`}
                                                 >
-                                                    {result.status === 'sent' ? (
+                                                    {result.status ===
+                                                    "sent" ? (
                                                         <CheckCircle className="w-3 h-3" />
                                                     ) : (
                                                         <XCircle className="w-3 h-3" />
@@ -554,7 +866,7 @@ export default function CampaignDetails() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4 text-gray-400 text-sm">
-                                                {result.error || '—'}
+                                                {result.error || "—"}
                                             </td>
                                         </tr>
                                     ))}
